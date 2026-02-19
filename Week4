@@ -1,0 +1,160 @@
+import java.util.*;
+import java.lang.Math;
+
+public class Faq4{
+
+    // ================= FAQ MODEL =================
+    static class FAQ {
+        String question;
+        String answer;
+
+        FAQ(String question, String answer) {
+            this.question = question;
+            this.answer = answer;
+        }
+    }
+
+    // ================= TEXT PROCESSING =================
+    static String[] tokenize(String text) {
+        return text.toLowerCase()
+                .replaceAll("[^a-z ]", "")
+                .split("\\s+");
+    }
+
+    // ================= TF CALCULATION =================
+    static Map<String, Double> computeTF(String[] words) {
+        Map<String, Double> tf = new HashMap<>();
+        for (String word : words) {
+            tf.put(word, tf.getOrDefault(word, 0.0) + 1);
+        }
+        for (String word : tf.keySet()) {
+            tf.put(word, tf.get(word) / words.length);
+        }
+        return tf;
+    }
+
+    // ================= IDF CALCULATION =================
+    static Map<String, Double> computeIDF(List<String[]> documents) {
+        Map<String, Double> idf = new HashMap<>();
+        int totalDocs = documents.size();
+
+        for (String[] doc : documents) {
+            Set<String> uniqueWords = new HashSet<>(Arrays.asList(doc));
+            for (String word : uniqueWords) {
+                idf.put(word, idf.getOrDefault(word, 0.0) + 1);
+            }
+        }
+
+        for (String word : idf.keySet()) {
+            idf.put(word, Math.log((double) totalDocs / idf.get(word)));
+        }
+        return idf;
+    }
+
+    // ================= TF-IDF VECTOR =================
+    static Map<String, Double> computeTFIDF(
+            Map<String, Double> tf,
+            Map<String, Double> idf) {
+
+        Map<String, Double> tfidf = new HashMap<>();
+        for (String word : tf.keySet()) {
+            tfidf.put(word, tf.get(word) * idf.getOrDefault(word, 0.0));
+        }
+        return tfidf;
+    }
+
+    // ================= COSINE SIMILARITY =================
+    static double cosineSimilarity(
+            Map<String, Double> v1,
+            Map<String, Double> v2) {
+
+        double dotProduct = 0.0;
+        double mag1 = 0.0;
+        double mag2 = 0.0;
+
+        for (String key : v1.keySet()) {
+            dotProduct += v1.get(key) * v2.getOrDefault(key, 0.0);
+            mag1 += Math.pow(v1.get(key), 2);
+        }
+
+        for (double value : v2.values()) {
+            mag2 += Math.pow(value, 2);
+        }
+
+        if (mag1 == 0 || mag2 == 0) return 0.0;
+
+        return dotProduct / (Math.sqrt(mag1) * Math.sqrt(mag2));
+    }
+
+    // ================= MAIN METHOD =================
+    public static void main(String[] args) {
+
+        List<FAQ> faqs = new ArrayList<>();
+        faqs.add(new FAQ(
+                "what is machine learning",
+                "Machine learning is a subset of AI that allows systems to learn from data."
+        ));
+        faqs.add(new FAQ(
+                "what is artificial intelligence",
+                "Artificial Intelligence is the simulation of human intelligence in machines."
+        ));
+        faqs.add(new FAQ(
+                "what is database",
+                "A database is an organized collection of data stored electronically."
+        ));
+        faqs.add(new FAQ(
+                "what is java",
+                "Java is a high-level, object-oriented programming language."
+        ));
+
+
+        // Prepare documents
+        List<String[]> documents = new ArrayList<>();
+        for (FAQ faq : faqs) {
+            documents.add(tokenize(faq.question));
+        }
+
+        // Compute IDF
+        Map<String, Double> idf = computeIDF(documents);
+
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Student Chatbot (type 'exit' to quit)");
+
+        while (true) {
+            System.out.print("\nYou: ");
+            String query = scanner.nextLine();
+
+            if (query.equalsIgnoreCase("exit")) {
+                System.out.println("Bot: Thank you! Goodbye 😊");
+                break;
+            }
+
+            Map<String, Double> queryTF =
+                    computeTF(tokenize(query));
+            Map<String, Double> queryTFIDF =
+                    computeTFIDF(queryTF, idf);
+
+            double maxSimilarity = 0.0;
+            String bestAnswer = "Sorry, I could not find an answer.";
+
+            for (int i = 0; i < faqs.size(); i++) {
+                Map<String, Double> faqTF =
+                        computeTF(documents.get(i));
+                Map<String, Double> faqTFIDF =
+                        computeTFIDF(faqTF, idf);
+
+                double similarity =
+                        cosineSimilarity(queryTFIDF, faqTFIDF);
+
+                if (similarity > maxSimilarity) {
+                    maxSimilarity = similarity;
+                    bestAnswer = faqs.get(i).answer;
+                }
+            }
+
+            System.out.println("Bot: " + bestAnswer);
+        }
+
+        scanner.close();
+    }
+}
