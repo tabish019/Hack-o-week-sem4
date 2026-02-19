@@ -1,0 +1,180 @@
+import java.util.*;
+
+    public class StudentIntentClassifier {
+
+        // ================= INTENT MODEL =================
+        static class Intent {
+            String name;
+            String trainingText;
+
+            Intent(String name, String trainingText) {
+                this.name = name;
+                this.trainingText = trainingText;
+            }
+        }
+
+        // ================= TEXT PROCESSING =================
+        static String[] tokenize(String text) {
+            return text.toLowerCase()
+                    .replaceAll("[^a-z ]", "")
+                    .split("\\s+");
+        }
+
+        // ================= TF CALCULATION =================
+        static Map<String, Double> computeTF(String[] words) {
+            Map<String, Double> tf = new HashMap<>();
+
+            for (String word : words) {
+                if (word.isEmpty()) continue;
+                tf.put(word, tf.getOrDefault(word, 0.0) + 1);
+            }
+
+            for (String word : tf.keySet()) {
+                tf.put(word, tf.get(word) / words.length);
+            }
+
+            return tf;
+        }
+
+        // ================= IDF CALCULATION =================
+        static Map<String, Double> computeIDF(List<String[]> documents) {
+            Map<String, Double> idf = new HashMap<>();
+            int totalDocs = documents.size();
+
+            for (String[] doc : documents) {
+                Set<String> uniqueWords = new HashSet<>(Arrays.asList(doc));
+
+                for (String word : uniqueWords) {
+                    if (word.isEmpty()) continue;
+                    idf.put(word, idf.getOrDefault(word, 0.0) + 1);
+                }
+            }
+
+            for (String word : idf.keySet()) {
+                idf.put(word, Math.log((double) totalDocs / idf.get(word)));
+            }
+
+            return idf;
+        }
+
+        // ================= TF-IDF CALCULATION =================
+        static Map<String, Double> computeTFIDF(Map<String, Double> tf,
+                                                Map<String, Double> idf) {
+
+            Map<String, Double> tfidf = new HashMap<>();
+
+            for (String word : tf.keySet()) {
+                tfidf.put(word, tf.get(word) * idf.getOrDefault(word, 0.0));
+            }
+
+            return tfidf;
+        }
+
+        // ================= COSINE SIMILARITY =================
+        static double cosineSimilarity(Map<String, Double> v1,
+                                       Map<String, Double> v2) {
+
+            double dotProduct = 0.0;
+            double mag1 = 0.0;
+            double mag2 = 0.0;
+
+            for (String key : v1.keySet()) {
+                dotProduct += v1.get(key) * v2.getOrDefault(key, 0.0);
+                mag1 += Math.pow(v1.get(key), 2);
+            }
+
+            for (double value : v2.values()) {
+                mag2 += Math.pow(value, 2);
+            }
+
+            if (mag1 == 0 || mag2 == 0) return 0.0;
+
+            return dotProduct / (Math.sqrt(mag1) * Math.sqrt(mag2));
+        }
+
+        // ================= MAIN METHOD =================
+        public static void main(String[] args) {
+
+            // Define intents
+            List<Intent> intents = new ArrayList<>();
+
+            intents.add(new Intent("Admissions",
+                    "apply admission process eligibility admission start documents"));
+
+            intents.add(new Intent("Exams",
+                    "exam schedule exam date syllabus revaluation result"));
+
+            intents.add(new Intent("Timetable",
+                    "class timetable lecture schedule lab timing period"));
+
+            intents.add(new Intent("Hostel",
+                    "hostel fees room allotment facilities availability mess"));
+
+            intents.add(new Intent("Scholarships",
+                    "scholarship merit scholarship financial aid apply form"));
+
+            intents.add(new Intent("Fees",
+                    "fee structure semester fees payment deadline late penalty"));
+
+            // Prepare intent documents
+            List<String[]> intentDocs = new ArrayList<>();
+            for (Intent intent : intents) {
+                intentDocs.add(tokenize(intent.trainingText));
+            }
+
+            // Compute IDF once
+            Map<String, Double> idf = computeIDF(intentDocs);
+
+            Scanner scanner = new Scanner(System.in);
+
+            System.out.println("Student Intent Classifier (type 'exit' to quit)");
+
+            while (true) {
+
+                System.out.print("\nYou: ");
+                String query = scanner.nextLine();
+
+                if (query.equalsIgnoreCase("exit")) {
+                    System.out.println("System: Goodbye!");
+                    break;
+                }
+
+                // Compute query TF-IDF
+                Map<String, Double> queryTF = computeTF(tokenize(query));
+                Map<String, Double> queryTFIDF = computeTFIDF(queryTF, idf);
+
+                double maxSimilarity = 0.0;
+                String bestIntent = "Unknown";
+
+                // Compare with each intent
+                for (int i = 0; i < intents.size(); i++) {
+
+                    Map<String, Double> intentTF =
+                            computeTF(intentDocs.get(i));
+
+                    Map<String, Double> intentTFIDF =
+                            computeTFIDF(intentTF, idf);
+
+                    double similarity =
+                            cosineSimilarity(queryTFIDF, intentTFIDF);
+
+                    if (similarity > maxSimilarity) {
+                        maxSimilarity = similarity;
+                        bestIntent = intents.get(i).name;
+                    }
+                }
+
+                // Threshold check
+                if (maxSimilarity < 0.15) {
+                    bestIntent = "Unknown";
+                }
+
+                System.out.println("Predicted Intent: " + bestIntent);
+                System.out.println("Similarity Score: " + maxSimilarity);
+            }
+
+            scanner.close();
+        }
+    }
+
+
