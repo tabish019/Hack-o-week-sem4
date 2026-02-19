@@ -1,0 +1,102 @@
+import re
+
+# -----------------------------
+# Helper: Roman to Integer
+# -----------------------------
+def roman_to_int(roman):
+    roman = roman.lower()
+    roman_map = {
+        'i': 1, 'v': 5, 'x': 10,
+        'l': 50, 'c': 100
+    }
+    total = 0
+    prev = 0
+    for char in reversed(roman):
+        value = roman_map.get(char, 0)
+        if value < prev:
+            total -= value
+        else:
+            total += value
+        prev = value
+    return total
+
+
+# -----------------------------
+# Entity Extraction Function
+# -----------------------------
+def extract_entities(text):
+    semester_pattern = r'\bsem(?:ester)?\s*(\d+|[ivx]+)\b'
+    course_code_pattern = r'\b[A-Z]{2,4}\d{2,3}\b|\b[A-Z]{2,4}\b'
+    date_pattern = r'\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)\b'
+
+    result = {
+        "semester": None,
+        "course_codes": [],
+        "dates": []
+    }
+
+    # Semester extraction
+    semester_match = re.search(semester_pattern, text.lower())
+    if semester_match:
+        sem_value = semester_match.group(1)
+        if sem_value.isdigit():
+            result["semester"] = int(sem_value)
+        else:
+            result["semester"] = roman_to_int(sem_value)
+
+    # Course codes (uppercase scan)
+    result["course_codes"] = re.findall(course_code_pattern, text.upper())
+
+    # Dates
+    result["dates"] = re.findall(date_pattern, text.lower())
+
+    return result
+
+
+# -----------------------------
+# Response Generator
+# -----------------------------
+def generate_response(entities):
+    semester = entities["semester"]
+    courses = entities["course_codes"]
+    dates = entities["dates"]
+
+    response_parts = []
+
+    if semester:
+        response_parts.append(f"Semester: {semester}")
+
+    if courses:
+        response_parts.append(f"Course Code(s): {', '.join(courses)}")
+
+    if dates:
+        response_parts.append(f"Date(s): {', '.join(dates)}")
+
+    if not response_parts:
+        return "No relevant academic entities found."
+
+    return "Extracted -> " + " | ".join(response_parts)
+
+
+# -----------------------------
+# Main Program (Multiple Questions)
+# -----------------------------
+if __name__ == "__main__":
+    print("Academic Entity Extractor")
+    print("Type 'exit' to stop.\n")
+
+    while True:
+        query = input("Enter your question: ")
+
+        if query.lower() == "exit":
+            print("Exiting program.")
+            break
+
+        entities = extract_entities(query)
+
+        print("\nDetected Entities:")
+        print(entities)
+
+        print("Response:")
+        print(generate_response(entities))
+        print("-" * 50)\
